@@ -1,0 +1,220 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  TEAM_MEMBER
+}
+
+enum SmtpEncryption {
+  SSL
+  TLS
+  STARTTLS
+  NONE
+}
+
+enum HealthStatus {
+  HEALTHY
+  WARNING
+  FAILED
+  PAUSED
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+enum ContentType {
+  HTML
+  PLAIN_TEXT
+}
+
+enum EmailStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  OPENED
+  CLICKED
+  REPLIED
+  BOUNCED
+  FAILED
+  UNSUBSCRIBED
+}
+
+enum BounceType {
+  HARD
+  SOFT
+}
+
+model User {
+  id                String        @id @default(cuid())
+  email             String        @unique
+  name              String?
+  passwordHash      String
+  role              Role          @default(ADMIN)
+  twoFactorEnabled  Boolean       @default(false)
+  twoFactorSecret   String?
+  aiApiKeyEncrypted String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  smtpAccounts      SmtpAccount[]
+  campaigns         Campaign[]
+  leads             Lead[]
+  templates         Template[]
+}
+
+model SmtpAccount {
+  id                   String         @id @default(cuid())
+  ownerId              String
+  owner                User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  host                 String
+  port                 Int
+  username             String
+  passwordEncrypted    String
+  encryption           SmtpEncryption
+  senderName           String
+  senderEmail          String
+  dailyLimit           Int            @default(500)
+  hourlyLimit          Int            @default(50)
+  group                String         @default("default")
+  healthStatus         HealthStatus   @default(HEALTHY)
+  isPaused             Boolean        @default(false)
+  sentToday            Int            @default(0)
+  lastTestedAt         DateTime?
+  lastError            String?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  emailEvents          EmailEvent[]
+
+  @@index([ownerId, group])
+  @@index([healthStatus, isPaused])
+}
+
+model Lead {
+  id           String       @id @default(cuid())
+  ownerId      String
+  owner        User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name         String?
+  firstName    String?
+  lastName     String?
+  company      String?
+  website      String?
+  location     String?
+  jobTitle     String?
+  phone        String?
+  email        String
+  customFields Json         @default("{}")
+  unsubscribed Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  emailEvents  EmailEvent[]
+
+  @@unique([ownerId, email])
+  @@index([ownerId, unsubscribed])
+}
+
+model Campaign {
+  id              String           @id @default(cuid())
+  ownerId         String
+  owner           User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name            String
+  subject         String
+  body            String
+  contentType     ContentType      @default(HTML)
+  status          CampaignStatus   @default(DRAFT)
+  smtpGroup       String           @default("default")
+  smtpAccountIds  Json             @default("[]")
+  dailyLimit      Int              @default(500)
+  timezone        String           @default("UTC")
+  businessHours   Json             @default("{\"start\":9,\"end\":17,\"days\":[1,2,3,4,5]}")
+  scheduledAt     DateTime?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  steps           CampaignStep[]
+  emailEvents     EmailEvent[]
+
+  @@index([ownerId, status])
+}
+
+model CampaignStep {
+  id          String     @id @default(cuid())
+  campaignId  String
+  campaign    Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  position    Int
+  delayDays   Int        @default(0)
+  condition   String     @default("NOT_REPLIED")
+  subject     String
+  body        String
+  contentType ContentType @default(HTML)
+
+  @@unique([campaignId, position])
+}
+
+model EmailEvent {
+  id             String       @id @default(cuid())
+  ownerId        String
+  campaignId     String
+  campaign       Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  leadId         String
+  lead           Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  smtpAccountId  String?
+  smtpAccount    SmtpAccount? @relation(fields: [smtpAccountId], references: [id], onDelete: SetNull)
+  status         EmailStatus  @default(QUEUED)
+  trackingToken  String       @unique
+  subject        String
+  messageId      String?
+  sentAt         DateTime?
+  openedAt       DateTime?
+  openCount      Int          @default(0)
+  clickCount     Int          @default(0)
+  clickedLinks   Json         @default("[]")
+  repliedAt      DateTime?
+  replyPreview   String?
+  bouncedAt      DateTime?
+  bounceType     BounceType?
+  bounceReason   String?
+  deviceType     String?
+  country        String?
+  operatingSystem String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([ownerId, status])
+  @@index([campaignId, status])
+  @@index([smtpAccountId])
+}
+
+model Template {
+  id          String      @id @default(cuid())
+  ownerId     String
+  owner       User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name        String
+  subject     String
+  body        String
+  contentType ContentType @default(HTML)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Suppression {
+  id        String   @id @default(cuid())
+  ownerId   String
+  email     String
+  reason    String   @default("unsubscribe")
+  createdAt DateTime @default(now())
+
+  @@unique([ownerId, email])
+}

@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+body { margin: 0; background: #f8fafc; color: #0f172a; }
+* { box-sizing: border-box; }
+::selection { background: #d9ebff; }
+.card { @apply rounded-3xl border border-slate-200/70 bg-white shadow-soft; }
+.btn-primary { @apply inline-flex items-center justify-center rounded-2xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700; }
+.btn-secondary { @apply inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50; }
+.input { @apply w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100; }
+.label { @apply text-xs font-semibold uppercase tracking-[0.2em] text-slate-500; }
+.badge { @apply rounded-full px-3 py-1 text-xs font-semibold; }
